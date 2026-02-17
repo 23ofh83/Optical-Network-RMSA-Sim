@@ -13,99 +13,103 @@ MODULATIONS = [
 
 def build_topology(file_path):
     """
-    读取拓扑 txt 文件并生成 NetworkX 图
+    Read the topology txt file and generate a NetworkX graph.
     """
-    print(f"正在读取拓扑文件: {file_path}")
+    print(f"Reading topology file: {file_path}")
     
     try:
         df = pd.read_csv(file_path, sep='\s+', header=None, engine='python', skiprows=1)
     except Exception as e:
-        print(f"读取文件失败: {e}")
+        print(f"Failed to read file: {e}")
         return None
 
-    # 打印前几行，检查数据有没有读错
-    print("----- 数据预览 (前3行) -----")
+    # Print the first few rows to verify correct data loading
+    print("----- Data Preview (First 3 Rows) -----")
     print(df.head(3))
-    print("----------------------------\n")
+    print("---------------------------------------\n")
 
-    # 2. 创建一个无向图 (光纤通常是双向的)
+    # 2. Create an undirected graph (optical fibers are typically bidirectional)
     G = nx.Graph()
 
-    # 3. 遍历数据行，添加节点和边
-    # 根据 PDF 说明：第4列(索引3)是源，第5列(索引4)是目的，第6列(索引5)是距离 [cite: 92, 93]
+    # 3. Iterate through each row to add nodes and edges
+    # According to the PDF: column 4 (index 3) is source,
+    # column 5 (index 4) is destination,
+    # column 6 (index 5) is distance
     for index, row in df.iterrows():
-        source = str(int(row[3]))  # 确保节点名称是字符串形式的整数
+        source = str(int(row[3]))  
         target = str(int(row[4]))
         distance = float(row[5])   
         
-        # 添加边，并将距离作为权重 (weight) 存进去，Dijkstra 算法以后要用它！
+        # Add edge and store distance as weight (used later by Dijkstra's algorithm)
         G.add_edge(source, target, weight=distance)
 
-    print(f"✅ 成功构建网络拓扑！包含 {G.number_of_nodes()} 个节点和 {G.number_of_edges()} 条边。")
+    print(f"Topology successfully constructed. Contains {G.number_of_nodes()} nodes and {G.number_of_edges()} edges.")
     return G
+
+
 def initialize_spectrum(G, num_slots=320):
     """
-    给图中的每一条边初始化频谱资源
-    G[u][v]['spectrum'] 是一个长度为 320 的列表
-    0 表示空闲，1 表示占用
+    Initialize spectrum resources for each edge in the graph.
+    G[u][v]['spectrum'] is a list of length 320.
+    0 indicates free, 1 indicates occupied.
     """
     for u, v in G.edges():
-        # 为每一条边创建一个全为 0 的列表
+        # Create a zero-initialized list for each edge
         G[u][v]['spectrum'] = [0] * num_slots
         
-    print(f"✅ 已为 {G.number_of_edges()} 条链路初始化了 {num_slots} 个频谱槽位。")
+    #print(f"Spectrum initialized with {num_slots} slots for {G.number_of_edges()} links.")
+
 
 def draw_topology(G):
     """
-    把网络图画出来看看长什么样
+    Visualize the network topology.
     """
     plt.figure(figsize=(10, 8))
-    # spring_layout 是一种好看的节点排列方式
+    # spring_layout provides an aesthetically balanced layout
     pos = nx.spring_layout(G, seed=42) 
     
-    # 画节点和连线
+    # Draw nodes and edges
     nx.draw(G, pos, with_labels=True, node_color='skyblue', 
             node_size=800, font_size=12, font_weight='bold', edge_color='gray')
     
-    # 把距离(weight)写在连线上
+    # Display edge weights (distances)
     edge_labels = nx.get_edge_attributes(G, 'weight')
     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=9)
     
     plt.title("Optical Network Topology (Edge labels = Distance in km)")
     plt.show()
 
+
 def load_traffic_matrix(file_path):
     """
-    读取 10x10 的流量矩阵文件
-    行 = 源节点 (Source), 列 = 目的节点 (Destination), 值 = 比特率 (Bitrate)
-    注意：因为拓扑节点是 1-10，而矩阵索引是 0-9，所以需要 +1 修正
+    Read the 10x10 traffic matrix file.
+    Rows = source nodes, columns = destination nodes, values = bitrate.
+    Note: topology nodes are labeled 1–10, while matrix indices are 0–9,
+    therefore a +1 offset is required.
     """
-    print(f"正在读取流量矩阵: {file_path}")
+    #print(f"Reading traffic matrix: {file_path}")
     
     try:
-        # 读取矩阵，假设没有表头
         df = pd.read_csv(file_path, sep='\s+', header=None, engine='python')
         
-        # 确保它是 10x10 的
+        # Ensure the matrix is 10x10
         if df.shape != (10, 10):
-            print(f"⚠️ 警告: 矩阵形状是 {df.shape}，可能不对！预期是 (10, 10)")
+            print(f"Warning: Matrix shape is {df.shape}, expected (10, 10).")
             
     except Exception as e:
-        print(f"读取文件失败: {e}")
+        print(f"Failed to read file: {e}")
         return []
 
     requests = []
     request_id_counter = 0
 
-    # 遍历矩阵的每一行 (Source) 和每一列 (Destination)
-    # i 是行索引 (0-9), j 是列索引 (0-9)
+    # Iterate through each row (source) and column (destination)
     for i in range(df.shape[0]):
         for j in range(df.shape[1]):
-            bitrate = df.iloc[i, j] # 获取格子里的数值
+            bitrate = df.iloc[i, j]
             
-            # 只有当流量大于 0，且源不等于目的时，才算有效请求
+            # Only consider valid requests (bitrate > 0 and source ≠ destination)
             if bitrate > 0 and i != j:
-                # 关键步骤：把索引 0 变成节点 "1"
                 source_node = str(i + 1)
                 dest_node = str(j + 1)
                 
@@ -113,70 +117,72 @@ def load_traffic_matrix(file_path):
                     "id": request_id_counter,
                     "source": source_node,
                     "destination": dest_node,
-                    "bitrate": float(bitrate)
+                    "bitrate": float(bitrate)*10
                 })
                 request_id_counter += 1
             
-    print(f"✅ 成功从矩阵中解析出 {request_id_counter} 条连接请求。")
+    #print(f"Successfully parsed {request_id_counter} connection requests from the matrix.")
     return requests
 
+
 def get_shortest_path(G, source, destination):
-    
     try:
-        # 1. 获取路径 (返回一个节点列表，例如 ['1', '5', '2'])
+        # 1. Retrieve the path (list of nodes)
         path = nx.shortest_path(G, source=source, target=destination, weight='weight')
         
-        # 2. 获取路径的总长度 (返回一个浮点数，例如 350.0)
+        # 2. Retrieve the total path length
         distance = nx.shortest_path_length(G, source=source, target=destination, weight='weight')
         
         return path, distance
     except nx.NetworkXNoPath:
-        # 如果两点之间不通，NetworkX 会报错，这里我们要捕获它
+        # Handle disconnected nodes
         return None, float('inf')
     
+
 def select_modulation(distance):
     """
-    根据距离选择调制格式
+    Select modulation format based on transmission distance.
     """
     for modulation in MODULATIONS:
         if distance <= modulation["max_length"]:
             return modulation
-    return None  # 如果距离超过所有调制的最大长度，返回 None
+    return None  
+
 
 def calculate_required_slots(bitrate, modulation):
     """
-    根据比特率和调制格式计算所需的频谱槽位数
+    Calculate the required number of spectrum slots based on bitrate and modulation format.
     """
     if modulation is None:
-        return None  # 无可用调制格式
+        return None  
     
-    num_slots=math.ceil(bitrate/modulation['capacity'])
-    total_slots=num_slots*modulation['slots']
+    num_slots = math.ceil(bitrate / modulation['capacity'])
+    total_slots = num_slots * modulation['slots']
     
     return total_slots
 
-def find_and_allocate_slots(G,path,slots_needed):
-# 我们要检查从 start_index 开始的那一段频谱
-# 比如 start_index = 0, slots_needed = 3, 也就是检查 [0, 1, 2]
-# 外层循环：尝试每一个可能的起始槽位 start_index
+
+def find_and_allocate_slots(G, path, slots_needed):
+    # Check the spectrum segment starting from start_index
+    # Example: start_index = 0, slots_needed = 3 → check [0, 1, 2]
+    # Outer loop: try each possible starting slot
     for start_index in range(320 - slots_needed + 1):
 
-        is_available = True  # <--- 1. 先立旗：假设这个 start_index 在所有边上都是空的
+        is_available = True  
 
-        # 内层循环：检查路径上的每一条边 (u, v)
+        # Inner loop: check each edge along the path
         for i in range(len(path) - 1):
             u = path[i]
             v = path[i+1]
             spectrum = G[u][v]['spectrum']
 
-            # 检查这条边上的 [start_index : start_index + slots_needed] 是否有 1
+            # Check if any slot in the segment is occupied
             if spectrum[start_index : start_index + slots_needed].count(1) > 0:
-                is_available = False  # 发现有占用，倒旗
+                is_available = False  
                 break    
 
         if is_available:
-            # 1. 再次遍历路径上的每一条边 u, v
-            # 2. 把 G[u][v]['spectrum'] 里的那一小段 [start_index : start_index + slots_needed] 全部设为 1
+            # Allocate slots along the entire path
             for i in range(len(path) - 1):
                 u = path[i]
                 v = path[i+1]
@@ -186,64 +192,104 @@ def find_and_allocate_slots(G,path,slots_needed):
 
     return None
 
+
 def calculate_total_noc(G):
-    total_noc=0
+    total_noc = 0
     for u, v in G.edges():
-        spectrum=G[u][v]['spectrum']
-        for i in range(len(spectrum)-1):
-            if spectrum[i]!=spectrum[i+1]:
-                total_noc+=1
+        spectrum = G[u][v]['spectrum']
+        for i in range(len(spectrum) - 1):
+            if spectrum[i] != spectrum[i+1]:
+                total_noc += 1
     return total_noc
+
+
+
 # ==========================================
-# 主程序入口 
+# Main program entry
 # ==========================================
 if __name__ == "__main__":
-    # 1. build topology
+    
+
+    matrix_names = ['M1', 'M2', 'M3', 'M4', 'M5']
+    noc_list = []
+    slots_list = []
+    blocking_list = []
+
+    # 1. Build topology
     current_dir = os.path.dirname(os.path.abspath(__file__))
     topology_file = os.path.join(current_dir, "data", "Network Italian 10-node", "IT10-topology.txt")
-    # 2.load traffic matrix
+
+    # 2. Load traffic matrix
     traffic_file_total = os.path.join(current_dir, "data", "Network Italian 10-node", "IT10-matrix-{}.txt")
     network_graph = build_topology(topology_file)
     
     if network_graph:
-         draw_topology(network_graph)
-      
-    
+        draw_topology(network_graph)
+
+    orders = [
+        ('Ascending', False), 
+        ('Descending', True)  
+    ]
+
+    print(f"{'Matrix':<8} | {'Order':<10} | {'Reqs':<5} | {'Block':<8} | {'BP(%)':<8} | {'Highest':<8} | {'Slots':<8} | {'NoC':<5}")
+    print("-" * 95)
+
     for i in range(1, 6):
-        initialize_spectrum(network_graph) 
-        traffic_file=traffic_file_total.format(i)
+        traffic_file = traffic_file_total.format(i)
         connection_requests = load_traffic_matrix(traffic_file)
-        allocated_count = 0
-        benchmark_noc = 0
-    # 打印前 5 个需求看看对不对
-    #if connection_requests:
-    #    print("\n----- 转换后的请求样本 (前5个) -----")
-    #        for req in connection_requests[:5]:
-    #            print(req)
-    #        print("------------------------------------")
-        for req in connection_requests:
-            path, distance = get_shortest_path(network_graph, req["source"], req["destination"])
-            modulation = select_modulation(distance)
-            if modulation:
-                required_slots = calculate_required_slots(req["bitrate"], modulation)
-                start_slot = find_and_allocate_slots(network_graph, path, required_slots)
-                if start_slot is not None:
-                    allocated_count += 1
-                    #print(f"请求 {req['id']} (src:{req['source']}->dst:{req['destination']}): 成功分配! 调制: {modulation['name']}, 槽位: {start_slot}-{start_slot + required_slots - 1}")
-                else:
-                    print(f"请求 {req['id']}: 阻塞 (频谱不足)")
-            else:
-                print(f"请求 {req['id']}: 阻塞 (距离过长)")
-        benchmark_noc = calculate_total_noc(network_graph)
-        print(f"基准算法 (First Fit) 的总切割数 (NoC): {benchmark_noc}")
+        for order_name, reverse_flag in orders:
+            initialize_spectrum(network_graph) 
+            connection_requests = sorted(connection_requests, key=lambda x: x['bitrate'], reverse=reverse_flag)
+            
+            total_requests = len(connection_requests)
+            allocated_count = 0
+            benchmark_noc = 0
 
-        # === 核心：一键可视化 ===
-        print("正在生成可视化图表...")
-        viz.plot_spectrum_heatmap(network_graph, title=f"Spectrum Allocation - Matrix {i}")
+            for req in connection_requests:
+                path, distance = get_shortest_path(network_graph, req["source"], req["destination"])
+                modulation = select_modulation(distance)
 
-    #print(f"\n最终结果: 成功分配 {allocated_count} / {len(connection_requests)} 个请求")
-            #print("请求 ID: {}, 从 {} 到 {}, 比特率: {}, 最短路径: {}, 距离: {}".format(
-            #    req["id"], req["source"], req["destination"], req["bitrate"], path, distance
-            #))
-            #print("选择的调制格式: {}\n".format(modulation["name"] if modulation else "无可用调制"))
-            #print("所需频谱槽位数: {}\n".format(required_slots if required_slots else "无法计算"))
+                if modulation:
+            
+                    remaining_bitrate = req["bitrate"]
+                    max_capacity = modulation['capacity'] 
+                    sub_requests_sucess=True
+                    while remaining_bitrate > 0 :
+                        current_chunk_bitrate = min(remaining_bitrate, max_capacity)
+                        required_slots = calculate_required_slots(current_chunk_bitrate, modulation)
+
+                        start_slot = find_and_allocate_slots(network_graph, path, required_slots)
+
+                        if start_slot is not None:
+                            remaining_bitrate -= current_chunk_bitrate
+                        else:
+                            sub_requests_sucess=False
+                            break
+                    if sub_requests_sucess and remaining_bitrate <= 0:
+                        allocated_count += 1
+                    else:
+                        pass
+
+            blocked_count = total_requests - allocated_count
+            blocking_ratio = (blocked_count / total_requests) * 100
+            total_used_slots = sum(sum(data['spectrum']) for u, v, data in network_graph.edges(data=True))
+
+            benchmark_noc = calculate_total_noc(network_graph)
+            noc_list.append(benchmark_noc)
+            slots_list.append(total_used_slots)
+            blocking_list.append(blocking_ratio)
+            highest_slot_used = 0
+            for u, v, data in network_graph.edges(data=True):
+                
+                occupied_indices = [idx for idx, val in enumerate(data['spectrum']) if val == 1]
+                if occupied_indices:
+                    # Update the highest slot used across all edges
+                    highest_slot_used = max(highest_slot_used, max(occupied_indices))
+            print(f"{i:<8} | {order_name:<10} | {total_requests:<5} | {allocated_count}/{blocked_count:<6} | {blocking_ratio:<8.2f} | {highest_slot_used:<8} | {total_used_slots:<8} | {benchmark_noc:<5}")
+
+            # Core feature: one-click visualization
+            #print("Generating visualization...")
+            viz.plot_spectrum_heatmap(network_graph, title=f"Spectrum Allocation - Matrix {i}")
+
+
+
