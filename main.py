@@ -3,6 +3,16 @@ import networkx as nx
 import math
 import os
 from itertools import islice
+import logging
+
+logging.basicConfig(
+    level=logging.INFO, # 控制打印级别 (DEBUG, INFO, WARNING, ERROR)
+    format='%(asctime)s [%(levelname)s] (%(filename)s:%(lineno)d) - %(message)s',
+    handlers=[
+        logging.FileHandler("simulation.log", mode='w', encoding='utf-8'), # 写入文件
+        logging.StreamHandler() # 同时打印到控制台
+    ]
+)
 
 MODULATIONS = [
     {"name": "DP-16QAM",    "max_length": 500,  "capacity": 400, "slots": 6, "cost": 3.7},  
@@ -16,6 +26,7 @@ def build_topology(file_path):
     try:
         df = pd.read_csv(file_path, sep=r'\s+', header=None, engine='python', skiprows=1)
     except Exception as e:
+        logging.error(f"Failed to build topology from {file_path}. Error: {e}")
         return None
 
     G = nx.DiGraph() 
@@ -25,6 +36,7 @@ def build_topology(file_path):
         distance = float(row[5])       
         G.add_edge(source, target, weight=distance) 
         G.add_edge(target, source, weight=distance) 
+    logging.info(f"Topology successfully built from {os.path.basename(file_path)}. Nodes: {G.number_of_nodes()}, Edges: {G.number_of_edges()}")
     return G
 
 def initialize_spectrum(G, num_slots=NUM_SLOTS):
@@ -318,11 +330,14 @@ def run_simulation(G_clean, traffic_file, algorithm_type, order_descending):
                 success, chunks_info = serve_request_custom(G, paths_info, req)
             
         if success: 
+            logging.debug(f"Req {req['id']} ({req['source']}->{req['destination']}) allocated successfully.")
             allocated_count += 1
             for chunk in chunks_info:
                 total_transponder_cost += chunk[3]  
                 total_path_length += chunk[4]
                 total_chunks += 1
+        else:
+            logging.warning(f"Req {req['id']} ({req['source']}->{req['destination']}, Bitrate: {req['bitrate']}) WAS BLOCKED using {algorithm_type}.")
             
     blocked_count = total_reqs - allocated_count
     blocking_ratio = (blocked_count / total_reqs) * 100 if total_reqs > 0 else 0
@@ -357,17 +372,19 @@ if __name__ == "__main__":
     orders = [('Asc', False), ('Desc', True)]
 
     all_results = [] 
-
+    logging.info("=== Starting Optical Network RMSA Validation Framework ===")
     print("="*160)
     print(f"{'Net':<5} | {'Mat':<5} | {'Algorithm':<26} | {'Alloc/Blk':<8} | {'BP(%)':<6} | {'HighFSU':<7} | {'TotalFSU':<8} | {'AvgHop':<7} | {'Cost':<7} | {'RSS':<6} | {'NoC':<6}")
     print("-" * 160)
 
     for network in networks_to_run:
+        logging.info(f"Processing network topology: {network['name']}")
         topology_file = os.path.join(current_dir, "data", network["topo"])
         base_graph = build_topology(topology_file)
         if not base_graph: continue
 
         for i in range(1, 6):
+            logging.info(f"Running simulation for Traffic Matrix M{i}")
             traffic_file = os.path.join(current_dir, "data", network["matrix_prefix"].format(i))
             if not os.path.exists(traffic_file): continue
                 
@@ -396,11 +413,11 @@ if __name__ == "__main__":
                     
         if network != networks_to_run[-1]:
             print("-" * 160)
-
+    
     print("="*160)
 
     df = pd.DataFrame(all_results)
     output_path = os.path.join(current_dir, "my_simulation_results.csv")
     df.to_csv(output_path, index=False)
-    
+    logging.info(f"=== Simulation complete. Results saved to {output_path} ===")
     print(f"\n🎉 csv file: {output_path}")
