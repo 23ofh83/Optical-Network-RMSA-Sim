@@ -56,17 +56,25 @@ def load_traffic_matrix(file_path):
 
     requests = []
     request_id_counter = 0
+    MAX_LIGHTPATH_CAPACITY = 400.0
     for i in range(df.shape[0]):
         for j in range(df.shape[1]):
-            bitrate = df.iloc[i, j]
-            if bitrate > 0 and i != j:
-                requests.append({
-                    "id": request_id_counter,
-                    "source": str(i + 1),
-                    "destination": str(j + 1),
-                    "bitrate": float(bitrate) * 10 
-                })
-                request_id_counter += 1
+            raw_bitrate = df.iloc[i, j]
+            if raw_bitrate > 0 and i != j:
+                total_bitrate = float(raw_bitrate) * 10.0 # 转换单位为 Gbps [cite: 461]
+                
+                # 🛡️ 严格对齐任务书：若超出 400G 限制，切分为多条并行的独立光通路请求 
+                remaining = total_bitrate
+                while remaining > 0:
+                    chunk_size = min(remaining, MAX_LIGHTPATH_CAPACITY)
+                    requests.append({
+                        "id": request_id_counter,
+                        "source": str(i + 1),
+                        "destination": str(j + 1),
+                        "bitrate": chunk_size
+                    })
+                    request_id_counter += 1
+                    remaining -= chunk_size
     return requests
 
 def get_k_shortest_paths(G, source, destination, k=5):
@@ -249,6 +257,8 @@ def serve_request_custom(G, paths_info, req):
                 
             max_capacity = mod['capacity']
             chunk_size = min(remaining_bitrate, max_capacity)
+            if chunk_size <= 0:
+                return False, [], "Invalid Traffic Chunk Allocation" 
             req_slots = calculate_required_slots(chunk_size, mod)
             
             valid_slots = find_all_available_slots(G, path, req_slots)
@@ -385,9 +395,9 @@ def run_simulation(G_clean, traffic_file, algorithm_type, order_descending):
                      f"Breakdown: {block_reason_counts}")
         
     avg_path_len = total_path_length / total_chunks if total_chunks > 0 else 0
-    if "matrix-5" in traffic_file.lower() or "m5" in traffic_file.lower():
+    if "matrix-5" in str(traffic_file).lower() or "m5" in str(traffic_file).lower():
         order_str = "Desc" if order_descending else "Asc"
-        net_name = "G17" if "g17" in traffic_file.lower() else "IT10"
+        net_name = "G17" if "g17" in str(traffic_file).lower() else "IT10"
         
         # 清洗算法名字，去掉括号
         clean_algo = algorithm_type.split('(')[0].strip()
