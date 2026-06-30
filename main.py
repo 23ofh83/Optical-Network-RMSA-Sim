@@ -399,7 +399,7 @@ def run_simulation(G_clean, traffic_file, algorithm_type, order_descending):
         order_str = "Desc" if order_descending else "Asc"
         net_name = "UnknownNet"
         for potential_name in ["G17", "IT10", "G50"]:
-            if potential_name.lower() in traffic_file.lower():
+            if potential_name.lower() in str(traffic_file).lower():
                 net_name = potential_name
                 break
         
