@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
-def plot_spectrum_heatmap(G, title="Spectrum Utilization"):
+def plot_spectrum_heatmap(G, title="Spectrum Utilization",save_path=None):
     """
     画出全网频谱占用热力图 (Heatmap)
     这是最直观展示“碎片化”和“拥堵”的图表
@@ -40,8 +40,15 @@ def plot_spectrum_heatmap(G, title="Spectrum Utilization"):
     cbar = plt.colorbar()
     cbar.set_label('Occupancy (1=Used, 0=Free)')
     
+    # 修改 visualization.py 里的 plot_spectrum_heatmap 末尾：
     plt.tight_layout()
-    plt.show()
+    # 如果给了 save_path 就保存，否则才 show
+    if save_path:
+        plt.savefig(save_path, dpi=300) # 保持高清晰度保存
+        plt.close() # 必须关闭画布，释放内存！
+        print(f" ［可视化］谱热力图已成功保存至: {save_path}")
+    else:
+        plt.show() # 如果没传路径，才弹窗
 
 def draw_topology_with_path(G, path=None):
     """

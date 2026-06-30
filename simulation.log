@@ -1,0 +1,7 @@
+2026-06-30 16:07:13,781 [INFO] (main.py:425) - 成功加载外部控制配置: D:\downloads\cv_codex\Optical Network\RMSA-main\config.json
+2026-06-30 16:07:13,782 [INFO] (main.py:456) - === Starting Optical Network RMSA Validation Framework ===
+2026-06-30 16:07:13,783 [INFO] (main.py:462) - Processing network topology: G17
+2026-06-30 16:07:13,785 [INFO] (main.py:44) - Topology successfully built from G17-topology.txt. Nodes: 17, Edges: 52
+2026-06-30 16:08:40,863 [INFO] (main.py:462) - Processing network topology: IT10
+2026-06-30 16:08:40,867 [INFO] (main.py:44) - Topology successfully built from IT10-topology.txt. Nodes: 10, Edges: 30
+2026-06-30 16:09:02,027 [INFO] (main.py:510) - === Simulation complete. Results saved to D:\downloads\cv_codex\Optical Network\RMSA-main\my_simulation_results.csv ===

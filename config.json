@@ -1,0 +1,13 @@
+{
+    "active_networks": ["G17", "IT10","G50"],
+    "active_algorithms": [
+      "Benchmark",
+      "Custom(NoC-aware Best-Fit)",
+      "1+1 Protection (First-Fit)"
+    ],
+    "traffic_matrix_indices": [1,2,3,4,5],
+    "request_orders": [
+      {"name": "Asc", "descending": false},
+      {"name": "Desc", "descending": true}
+    ]
+  }
