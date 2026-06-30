@@ -445,7 +445,7 @@ if __name__ == "__main__":
             "sub_dir": "Network Italian 10-node",  # 对应实际的文件夹名
             "topo": "IT10-topology.txt", 
             "matrix_prefix": "IT10-matrix-{}.txt"
-        }
+        },
         "G50": {
         "name": "G50", 
         "sub_dir": "Network Germany 50-node",
