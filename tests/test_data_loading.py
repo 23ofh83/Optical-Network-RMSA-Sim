@@ -8,7 +8,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 
 def test_build_topology_loads_bidirectional_graph():
-    graph = build_topology(DATA_DIR / "IT10-topology.txt")
+    graph = build_topology(DATA_DIR / "Network Italian 10-node" / "IT10-topology.txt")
 
     assert graph is not None
     assert graph.number_of_nodes() > 0
@@ -21,7 +21,7 @@ def test_build_topology_loads_bidirectional_graph():
 
 
 def test_load_traffic_matrix_returns_valid_requests():
-    requests = load_traffic_matrix(DATA_DIR / "IT10-matrix-1.txt")
+    requests = load_traffic_matrix(DATA_DIR / "Network Italian 10-node" / "IT10-matrix-1.txt")
 
     assert len(requests) == 58
     assert all(req["source"] != req["destination"] for req in requests)

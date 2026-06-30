@@ -5,11 +5,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
 
 def test_run_simulation_returns_expected_schema():
-    graph = build_topology(DATA_DIR / "IT10-topology.txt")
+    graph = build_topology(DATA_DIR / "Network Italian 10-node"/ "IT10-topology.txt")
     # 确保读取 config 兼容或直接传入单次仿真
     result = run_simulation(
         graph,
-        DATA_DIR / "IT10-matrix-1.txt",
+        DATA_DIR / "Network Italian 10-node" / "IT10-matrix-1.txt",
         algorithm_type="Benchmark",
         order_descending=False,
     )
@@ -35,8 +35,8 @@ def test_run_simulation_returns_expected_schema():
 
 
 def test_custom_algorithm_reduces_g17_m5_desc_blocking_probability():
-    graph = build_topology(DATA_DIR / "G17-topology.txt")
-    traffic_file = DATA_DIR / "G17-matrix-5.txt"
+    graph = build_topology(DATA_DIR / "Network Germany 17-node"/ "G17-topology.txt")
+    traffic_file = DATA_DIR / "Network Germany 17-node" / "G17-matrix-5.txt"
 
     benchmark = run_simulation(
         graph,
