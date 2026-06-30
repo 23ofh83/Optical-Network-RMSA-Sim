@@ -393,13 +393,13 @@ def run_simulation(G_clean, traffic_file, algorithm_type, order_descending):
     if blocked_count > 0:
         logging.info(f"[{algorithm_type}] Simulation Finished. Total Blocked: {blocked_count}. "
                      f"Breakdown: {block_reason_counts}")
-        
+    traffic_file_str = str(traffic_file)   
     avg_path_len = total_path_length / total_chunks if total_chunks > 0 else 0
-    if "5" in os.path.basename(traffic_file):
+    if "5" in os.path.basename(traffic_file_str):
         order_str = "Desc" if order_descending else "Asc"
         net_name = "UnknownNet"
         for potential_name in ["G17", "IT10", "G50"]:
-            if potential_name.lower() in str(traffic_file).lower():
+            if potential_name.lower() in traffic_file_str.lower():
                 net_name = potential_name
                 break
         
