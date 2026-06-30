@@ -395,9 +395,13 @@ def run_simulation(G_clean, traffic_file, algorithm_type, order_descending):
                      f"Breakdown: {block_reason_counts}")
         
     avg_path_len = total_path_length / total_chunks if total_chunks > 0 else 0
-    if "matrix-5" in str(traffic_file).lower() or "m5" in str(traffic_file).lower():
+    if "5" in os.path.basename(traffic_file):
         order_str = "Desc" if order_descending else "Asc"
-        net_name = "G17" if "g17" in str(traffic_file).lower() else "IT10"
+        net_name = "UnknownNet"
+        for potential_name in ["G17", "IT10", "G50"]:
+            if potential_name.lower() in traffic_file.lower():
+                net_name = potential_name
+                break
         
         # 清洗算法名字，去掉括号
         clean_algo = algorithm_type.split('(')[0].strip()
