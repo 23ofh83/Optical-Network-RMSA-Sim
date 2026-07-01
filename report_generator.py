@@ -3,75 +3,98 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
-def generate_automated_report(csv_path):
-    if not os.path.exists(csv_path):
-        print(f"【错误】找不到 {csv_path}，请先运行 python main.py 生成数据！")
+import matplotlib
+matplotlib.use('Agg') # 牢牢守住无头后端
+
+def generate_automated_reports():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(current_dir, "my_simulation_results.csv")
+    
+    if not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0:
+        print(f"⚠️ 仿真数据源未生成或为空，静默跳过报告编译。")
         return
 
-    # 1. 读取 main.py 跑出来的最新 60 组实验数据
     df = pd.read_csv(csv_path)
-    report_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
-    os.makedirs(report_dir, exist_ok=True)
     
-    # 强制开启现代美观的作图风
-    sns.set_theme(style="whitegrid")
-    print("=== 🚀 开始执行自动化数据分析与图表编译 ===")
+    # 🌟 护栏 1：防御无数据或脏数据引发的下游全盘崩溃
+    if df.empty or "Network" not in df.columns:
+        print("⚠️ 数据集内容不完整，无法渲染高维图表。")
+        return
 
-    # 图表 1：对比不同算法在各网络下的平均阻塞率 (Bar Plot)
-    plt.figure(figsize=(10, 6))
-    sns.barplot(data=df, x="Network", y="BP(%)", hue="Algorithm", errorbar=None)
-    plt.title("Algorithm Blocking Probability Comparison across Topologies", fontsize=14)
-    plt.ylabel("Average Blocking Probability (%)")
-    plt.tight_layout()
-    plot_a_path = os.path.join(report_dir, "blocking_probability_comparison.png")
-    plt.savefig(plot_a_path, dpi=300)
-    plt.close()
-    print(f" ［自动化］成功生成图表 1: {plot_a_path}")
+    plots_dir = os.path.join(current_dir, "reports")
+    reports_dir = os.path.join(current_dir, "reports")
+    os.makedirs(plots_dir, exist_ok=True)
+    os.makedirs(reports_dir, exist_ok=True)
 
-    # 图表 2：算法执行耗时 (Runtime) 的箱线图 —— 针对你新加的 Runtime 指标做 Benchmark 评估！
-    plt.figure(figsize=(10, 6))
-    sns.boxplot(data=df, x="Algorithm", y="Runtime_Sec")
-    plt.title("Simulation Runtime Distribution (Performance Benchmark)", fontsize=14)
-    plt.ylabel("Execution Time (Seconds)")
-    plt.xticks(rotation=15)
-    plt.tight_layout()
-    plot_b_path = os.path.join(report_dir, "runtime_performance_benchmark.png")
-    plt.savefig(plot_b_path, dpi=300)
-    plt.close()
-    print(f" ［自动化］成功生成图表 2: {plot_b_path}")
-
-    # 2. 动态编译并写出全新的仿真数据总结报告
-    report_md_path = os.path.join(report_dir, "automated_experiment_summary.md")
-    
-    # 动态计算数据分析洞察（不再是固定的死数据）
-    avg_bp_benchmark = df[df["Algorithm"] == "Benchmark"]["BP(%)"].mean()
-    avg_bp_custom = df[df["Algorithm"] == "Custom(NoC-aware Best-Fit)"]["BP(%)"].mean()
-    max_runtime = df["Runtime_Sec"].max()
-    
-    with open(report_md_path, "w", encoding="utf-8") as f:
-        f.write("# 📡 光网络仿真平台自动化性能评估总结报告\n\n")
-        f.write(f"> **报告属性**: 生产线自动化测试流水线自动编译产生\n")
-        f.write(f"> **底层数据源**: 本地最新生成的 `{os.path.basename(csv_path)}`\n\n")
-        f.write("## 1. 核心性能指标摘要 (Executive Metrics Summary)\n")
-        f.write(f"- **自动化回归覆盖场景组合**: 全量 {len(df)} 组 Scenarios\n")
-        f.write(f"- **Benchmark 算法（First-Fit）全网平均阻塞率**: {avg_bp_benchmark:.2f}%\n")
-        f.write(f"- **Custom 算法（NoC-aware Best-Fit）全网平均阻塞率**: {avg_bp_custom:.2f}%\n")
-        f.write(f"- **重试回滚机制引发的最大单次仿真时延开销**: {max_runtime:.4f} 秒\n\n")
+    # ==========================================
+    # 核心精简与呈现策略：只针对真实存在的数据进行自适应分组
+    # ==========================================
+    for net_name, net_df in df.groupby("Network"):
         
-        f.write("## 2. 自动化性能可视分析面板 (Performance Analysis Dashboard)\n")
-        f.write("### 2.1 算法资源耗尽与全网阻塞率对比 (拓扑收敛曲线)\n")
-        f.write(f"![Blocking Probability](./blocking_probability_comparison.png)\n\n")
-        f.write("### 2.2 算法时空开销与复杂度 Benchmark 评估 (回滚代价动态观测)\n")
-        f.write(f"![Runtime Benchmark](./runtime_performance_benchmark.png)\n\n")
+        # ── 1. 阻断率看板 (核心指标：只呈现实际跑出来的流量矩阵) ──
+        plt.figure(figsize=(9, 5))
         
-        f.write("## 3. 测试验证结论与决策依据 (Verification Insights)\n")
-        f.write("根据本次流水线自动捞取并收敛的数据可知：\n")
-        f.write(f"1. **阻塞率优化明显**：Custom (NoC-aware) 算法由于引入了局部切片数（NoC）探测，成功对抗了高负载下的频谱碎片化，阻塞表现明显优于经典 First-Fit 算法。\n")
-        f.write(f"2. **算力折中警告（Trade-off）**：通过 Runtime 箱线图可以清晰看到，Custom 算法由于执行了高频的‘状态假设与重试回滚’，其计算时间的中位数和离散度均显著高于 Benchmark。这证明在硬件路由器线卡部署时，必须权衡控制面 CPU 的算力上限。\n")
+        # 🌟 护栏 2：如果某种算法或者矩阵在本次快测中没跑，Seaborn 会自动根据当前网元内存在的实际种类自适应对齐
+        sns.barplot(
+            data=net_df, 
+            x="Matrix", 
+            y="BP(%)", 
+            hue="Algorithm", 
+            palette="Set2"
+        )
+        plt.title(f"Net {net_name} - Spectrum Blocking Analysis", fontsize=11, fontweight='bold')
+        plt.xlabel("Tested Traffic Matrices")
+        plt.ylabel("Blocking Probability (%)")
+        plt.grid(axis='y', linestyle='--', alpha=0.5)
+        
+        # 🌟 护栏 3：如果只跑了一个场景，hue_labels 会只有 1 个，强行指定 loc 可能会挡住柱状图，设为 best 自适应避让
+        plt.legend(loc="best")
+        
+        plt.savefig(os.path.join(plots_dir, f"{net_name}_Metrics_Blocking_Comparison.png"), bbox_inches='tight', dpi=150)
+        plt.close()
 
-    print(f"\n🎉 恭喜！动态生成的自动化报告已成功覆盖写入至: {report_md_path}")
+        # ── 2. 时空复杂度看板 (精简呈现：核心关注算法间的时延中位数，剔除洗牌干扰) ──
+        plt.figure(figsize=(8, 5))
+        
+        # 🌟 护栏 4：检查当前网元下的样本量是否大于等于 2。如果只有 1 条数据，画 Boxplot 箱线图会变成一条很难看的单线，此时自动退化为点图 (Stripplot)
+        if len(net_df) >= 2:
+            sns.boxplot(data=net_df, x="Algorithm", y="Runtime_Sec", color="#e8f4f8", width=0.4)
+            sns.stripplot(data=net_df, x="Algorithm", y="Runtime_Sec", hue="Order", palette="Set1", size=6, jitter=0.1)
+        else:
+            sns.stripplot(data=net_df, x="Algorithm", y="Runtime_Sec", hue="Order", palette="Set1", size=8)
+            
+        plt.title(f"Net {net_name} - Algorithm Computational Delay Variance", fontsize=10, fontweight='bold')
+        plt.ylabel("Execution Time (Seconds)")
+        
+        plt.savefig(os.path.join(plots_dir, f"{net_name}_Metrics_Runtime_Distribution.png"), bbox_inches='tight', dpi=150)
+        plt.close()
+
+    # ── 3. 编译 Markdown 简报 (自适应 Top-N 数据截取) ──
+    md_report_path = os.path.join(reports_dir, "automated_experiment_summary.md")
+    # === 🌟 工业级智能报表切片逻辑 ===
+    with open(md_report_path, "w", encoding="utf-8") as f:
+        f.write(f"# 🌙 Automated Optical Network Performance Report\n\n")
+        f.write(f"## 1. 业务基准数据矩阵\n\n")
+        
+        # 1. 动态评估当前跑出来的总场景丰度 (Total Scenarios)
+        total_records = len(df)
+        
+        # 2. 智能化分支拦截：
+        if total_records <= 20:
+            # 💡 场景 A：如果你在做短路快测（数据量少），全量呈现所有网络和算法，并按【网络、阻塞率】联合规范排序
+            # 这样可以100%确保 IT10、G17、G50 的每一种算法都在表格里清晰对齐，绝不遗漏！
+            display_df = df.sort_values(by=["Network", "BP(%)"], ascending=[True, False])
+            print(f"ℹ️ 检测到当前为快测模式（样本量: {total_records}），已自动切换为【全量全网自适应对齐看板】。")
+        else:
+            # 💡 场景 B：如果运行的是全量 60+ 组场景，为了防止报告变成臭长垃圾场，自动激活 Top-10 极限压力筛选
+            display_df = df.sort_values(by="BP(%)", ascending=False).head(10)
+            print(f"ℹ️ 检测到全量压测模式（样本量: {total_records}），已自动激活【Top-10 极限压力淘汰看板】。")
+            
+        # 3. 绝对安全的写落盘（head防护依然在底层生效）
+        f.write(display_df[["Network", "Matrix", "Algorithm", "Order", "BP(%)", "Runtime_Sec"]].to_markdown(index=False))
+        f.write("\n")
+
+    print(f"🎉 防御性数据看板编译成功！当前样本丰度：{len(df)} 组场景。")
 
 if __name__ == "__main__":
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_file = os.path.join(current_dir, "my_simulation_results.csv")
-    generate_automated_report(csv_file)
+    generate_automated_reports()
